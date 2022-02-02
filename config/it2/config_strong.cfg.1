@@ -1,0 +1,58 @@
+use-gaia = true
+
+verbosity = 1
+threads = 1
+
+star-samplers = 10
+
+# star-p-replacement = 0
+
+disk-prior = true
+evidence-cut = 10
+
+mean-RV = 3.3
+
+log-Delta-EBV-min = -24.
+log-Delta-EBV-max = -6.
+sigma-log-Delta-EBV = 1.60
+
+pct-smoothing-min = 0.15
+pct-smoothing-max = 0.50
+
+discrete-los = true
+# save-surfs = true
+
+clouds = 0
+regions = 0
+
+L_thin = 2600
+H_thin = 300
+
+f_thick = 0.12
+L_thick = 3600
+H_thick = 900
+
+f_halo = 0.0030
+
+ext-file = PS1_2MASS_Extinction_APOGEE.dat
+template-file = PS1_qz_2MASS_colors.dat
+LF-file = PSMrLF.dat
+
+neighbor-lookup-file = /n/fink2/czucker/Plane_Final/correlation_files/G314_neighbors.h5
+pixel-lookup-file = /n/fink2/czucker/Plane_Final/correlation_files/G314_pixels.h5
+output-fname-pattern = /n/fink2/czucker/Plane_Final/output/it1/G314/G314.%05d.h5
+
+
+correlation-scale = 3.75
+corr-softening-scale = 3.75
+corr-softening-gamma = 4.0
+
+dsc-n-temperatures = 3
+dsc-beta-spacing = 0.99
+dsc-log-shift-weight-min = -2.0
+dsc-log-shift-weight-max = -0.25
+dsc-shift-weight-ladder-logarithmic = false
+dsc-n-swaps = 4000
+dsc-n-save = 100
+dsc-save-all-temperatures = true
+dsc-p-badstar = 0.001

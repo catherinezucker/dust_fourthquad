@@ -1,0 +1,9 @@
+fname="$1"
+
+bayestar_dir=${HOME}/projects/bayestar
+
+IFS=$'\n'
+for pixel in `h5ls "${fname}" | awk '{ print $2 }'`; do
+    echo "/pixel ${pixel}/discrete-los"
+    python ${bayestar_dir}/scripts/chain_convergence.py -i "${fname}" -d "/pixel ${pixel}/discrete-los" --add-attribute
+done

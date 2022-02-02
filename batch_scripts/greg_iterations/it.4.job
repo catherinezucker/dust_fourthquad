@@ -1,0 +1,105 @@
+#!/bin/bash
+
+#SBATCH -J bayestar-terra-4 # Job name
+#SBATCH --mail-user=gregorymgreen@gmail.com
+#SBATCH --mail-type=FAIL
+#SBATCH -n 1  # Number of cores per job
+#SBATCH -t 7-00:00:00  # Wall time (days-hh:mm:ss)
+#SBATCH -p shared,itc_cluster,serial_requeue # Queue to submit to 
+#SBATCH --constraint="intel" # Only use Intel cores
+#SBATCH --mem-per-cpu=4000  # Memory per core in MB
+#SBATCH -o /n/fink2/ggreen/bayestar/terra/log/it4/terra.%a.%j.o
+#SBATCH -e /n/fink2/ggreen/bayestar/terra/log/it4/terra.%a.%j.e
+#SBATCH --array=5009-5010 # Job array
+#SBATCH --signal=B:USR1@240
+# <dependency code here>
+
+echo "Host: ${SLURM_JOB_NODELIST}"
+echo "Partition: ${SLURM_JOB_PARTITION}"
+
+idx_offset=0
+idx_short=$(( ${SLURM_ARRAY_TASK_ID} + ${idx_offset} ))
+idx=`printf "%05d" ${idx_short}`
+
+export bayestar_ver="2018y12m06d"
+it=4
+
+# Get a list of input files to process
+#if [[ ${it} -eq 0 ]]; then
+#    list_fn="/n/fink2/ggreen/bayestar/terra/input_lists/it0/job.${idx}.txt"
+#else
+#    list_fn="/n/fink2/ggreen/bayestar/terra/input_lists/it1/job.${idx}.txt"
+#fi
+#
+#n_files=`wc -l < "${list_fn}"`
+#n_files=$(( ${n_files} + 1 ))
+#echo "Job ${idx} will process ${n_files} input files."
+
+start_dir=`pwd`
+
+# On termination, propagate signal to entire process group
+job_termination_handler()
+{
+    echo "+ Job termination handler:"
+    echo "+   * Propagating signal to subprocesses ..."
+    PGID=$(ps -o pgid= $$ | grep -o [0-9]*)
+    kill -USR1 -$PGID
+    echo "+   * Placing ${file_idx} back on queue ..."
+    mv "${processing_dir}/${file_idx}.${worker_id}" "${queue_dir}/${file_idx}"
+    echo "+   * Waiting 160 seconds ..."
+    sleep 160
+    echo "+   * Exiting ..."
+    exit 17
+}
+
+trap 'job_termination_handler' USR1 TERM # Job script should specify --signal=USR1@120
+
+# Queue properties
+queue_dir=/n/fink2/ggreen/bayestar/terra/paraveredus/it${it}/queue
+processing_dir=/n/fink2/ggreen/bayestar/terra/paraveredus/it${it}/processing
+completed_dir=/n/fink2/ggreen/bayestar/terra/paraveredus/it${it}/completed
+worker_id=${SLURM_ARRAY_TASK_ID}_${RANDOM}
+echo "Worker ID: ${worker_id}"
+
+# Get files from queue
+file_idx=-1
+k=0
+while [[ "${file_idx}" != "EMPTYQUEUE" ]]; do
+    k=$(( $k + 1 ))
+    
+    cd ${start_dir}
+    
+    # Get file from queue
+    file_idx=`bash ~/projects/bayestar/controlscripts/pop_from_queue.sh ${queue_dir} ${processing_dir} ${worker_id}`
+    if [[ "${file_idx}" == "EMPTYQUEUE" ]]; then
+        echo "Queue empty."
+    else
+        fn="terra.${file_idx}.h5"
+        
+        # Log filename
+        log_fn="/n/fink2/ggreen/bayestar/terra/log/it${it}/terra_file.${file_idx}.${worker_id}"
+        
+        echo ""
+        echo "========================================="
+        echo "Processing ${fn} (${k} of unknown)"
+        echo "========================================="
+        echo ""
+        echo "log filename: ${log_fn}.[o|e]"
+        echo ""
+        
+        bash ~/projects/bayestar/controlscripts/single_file_workflow.sh \
+            /n/fink2/ggreen/bayestar/terra/input/${fn} \
+            /n/fink2/ggreen/bayestar/terra/output/it${it}/${fn} \
+            /n/fink2/ggreen/bayestar/terra/config/it${it}/config.cfg \
+            /n/home09/ggreen/projects/bayestar/data/std_data.tar.gz 1> ${log_fn}.o 2> ${log_fn}.e &
+        
+        pid=$!
+        wait ${pid}
+        
+        # Mark file as completed in queue system
+        mv "${processing_dir}/${file_idx}.${worker_id}" "${completed_dir}/${file_idx}.${worker_id}"
+        
+        echo "Done with ${fn}."
+        echo ""
+    fi
+done
